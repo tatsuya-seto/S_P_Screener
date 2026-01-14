@@ -3,6 +3,11 @@ import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.event.*;
 import javax.swing.table.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
 
 public class Main implements ActionListener {
 
@@ -45,6 +50,7 @@ public class Main implements ActionListener {
 
     public static void main(String[] args) {
         new Main();
+
     }
 
     private void initGUI() {
@@ -104,7 +110,7 @@ public class Main implements ActionListener {
         JLabel SortLabel = new JLabel(" Sort:", JLabel.RIGHT);
         SortLabel.setSize(200, 20);
 
-        SortDropdown = new JComboBox<>(new String[] {
+        SortDropdown = new JComboBox<>(new String[]{
                 "Ticker (A-Z)",
                 "Company (A-Z)",
                 "Sector (A-Z)",
@@ -132,7 +138,7 @@ public class Main implements ActionListener {
 
         TopPanel.add(FilterPanel, BorderLayout.CENTER);
 
-        tableModel = new DefaultTableModel(new String[] {
+        tableModel = new DefaultTableModel(new String[]{
                 "Ticker", "Company", "Sector", "Market Cap", "P/E", "Dividend"
         }, 0) {
             public boolean isCellEditable(int row, int column) {
@@ -209,4 +215,51 @@ public class Main implements ActionListener {
 
         }
     }
+
+
+    private static final String MASSIVE_API_KEY = "YOUR_API_KEY";
+
+    private String fetchMassiveApi(String endpoint) {
+        StringBuilder result = new StringBuilder();
+
+        try {
+            // Construct full URL (endpoint must be something like "/v1/stocks/somePath")
+            String urlStr = "https://api.massive.com" + endpoint
+                    + "?apiKey=6AfWpeazzhtzecpGKDKuL0Oq0ggpePYp" + MASSIVE_API_KEY;
+
+            URL url = new URL(urlStr);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode != 200) {
+                System.out.println("Failed: HTTP error code " + responseCode);
+                return null;
+            }
+
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream())
+            );
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                result.append(line);
+            }
+            reader.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        return result.toString(); // raw JSON string
+    }
+
+    private void loadStockList() {
+        String jsonResponse = fetchMassiveApi("/v1/reference/tickers");
+        if (jsonResponse != null) {
+            System.out.println("Massive API JSON:\n" + jsonResponse);
+        }
+    }
+
 }
