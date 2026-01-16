@@ -254,12 +254,3 @@ public class Main implements ActionListener {
 
         return result.toString(); // raw JSON string
     }
-
-    private void loadStockList() {
-        String jsonResponse = fetchMassiveApi("/v1/reference/tickers");
-        if (jsonResponse != null) {
-            System.out.println("Massive API JSON:\n" + jsonResponse);
-        }
-    }
-
-}
