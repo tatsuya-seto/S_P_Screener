@@ -8,6 +8,8 @@ import java.net.URL;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.IOException;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 
 public class Main implements ActionListener {
 
@@ -190,6 +192,7 @@ public class Main implements ActionListener {
         mainFrame.add(BottomPanel, BorderLayout.CENTER);
 
         mainFrame.setVisible(true);
+        loadTickersIntoTable();
     }
 
     @Override
@@ -216,16 +219,17 @@ public class Main implements ActionListener {
         }
     }
 
+    private static final String ALPHA_VANTAGE_API_KEY = "72H77S2KTOSTVTXV";
 
-    private static final String MASSIVE_API_KEY = "6AfWpeazzhtzecpGKDKuL0Oq0ggpePYp";
-
-    private String fetchMassiveApi(String endpoint) {
+    private String fetchAlphaVantageQuote(String symbol) {
         StringBuilder result = new StringBuilder();
 
         try {
-            // Construct full URL (endpoint must be something like "/v1/stocks/somePath")
-            String urlStr = "https://api.massive.com" + endpoint
-                    + "?apiKey=6AfWpeazzhtzecpGKDKuL0Oq0ggpePYp" + MASSIVE_API_KEY;
+            // Constructing full URL
+            String urlStr = "https://www.alphavantage.co/query"
+                    + "?function=GLOBAL_QUOTE"
+                    + "&symbol=" + symbol
+                    + "&apikey=" + ALPHA_VANTAGE_API_KEY;
 
             URL url = new URL(urlStr);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -233,7 +237,7 @@ public class Main implements ActionListener {
 
             int responseCode = conn.getResponseCode();
             if (responseCode != 200) {
-                System.out.println("Failed: HTTP error code " + responseCode);
+                System.out.println("Alpha Vantage request failed. HTTP code: " + responseCode);
                 return null;
             }
 
@@ -252,7 +256,45 @@ public class Main implements ActionListener {
             return null;
         }
 
-        return result.toString(); // raw JSON string
+        return result.toString();  // JSON string
+    }
+
+    private void loadTickersIntoTable() {
+
+        try {
+            String urlStr = "https://www.alphavantage.co/query"
+                    + "?function=LISTING_STATUS"
+                    + "&apikey=" + ALPHA_VANTAGE_API_KEY;
+
+            URL url = new URL(urlStr);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream())
+            );
+
+            String line;
+
+            reader.readLine(); // skip CSV header
+
+            while ((line = reader.readLine()) != null) {
+
+                int commaIndex = line.indexOf(",");
+                if (commaIndex == -1) continue;
+
+                String symbol = line.substring(0, commaIndex).trim();
+
+                if (!symbol.isEmpty()) {
+                    tableModel.addRow(new Object[]{symbol, "", "", "", "", ""});
+                }
+            }
+
+            reader.close();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
 
