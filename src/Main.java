@@ -217,7 +217,7 @@ public class Main implements ActionListener {
     }
 
 
-    private static final String MASSIVE_API_KEY = "YOUR_API_KEY";
+    private static final String MASSIVE_API_KEY = "6AfWpeazzhtzecpGKDKuL0Oq0ggpePYp";
 
     private String fetchMassiveApi(String endpoint) {
         StringBuilder result = new StringBuilder();
