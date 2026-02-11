@@ -113,12 +113,12 @@ public class Main implements ActionListener {
         SortLabel.setSize(200, 20);
 
         SortDropdown = new JComboBox<>(new String[]{
-                "Ticker (A-Z)",
-                "Company (A-Z)",
-                "Sector (A-Z)",
-                "Market Cap",
-                "P/E",
-                "Dividend"
+                "Ticker",
+                "Company",
+                "Exchange",
+                "Asset Type",
+                "IPO Date",
+                "Status"
         });
 
         ApplyButton = new JButton("Apply");
@@ -141,8 +141,8 @@ public class Main implements ActionListener {
         TopPanel.add(FilterPanel, BorderLayout.CENTER);
 
         tableModel = new DefaultTableModel(new String[]{
-                "Ticker", "Company", "Sector", "Market Cap", "P/E", "Dividend"
-        }, 0) {
+                "Ticker", "Company", "Exchange", "Asset Type", "IPO Date", "Status"
+        }, 0){
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
@@ -275,19 +275,29 @@ public class Main implements ActionListener {
             );
 
             String line;
-
-            reader.readLine(); // skip CSV header
+            reader.readLine(); // skip header row
 
             while ((line = reader.readLine()) != null) {
 
-                int commaIndex = line.indexOf(",");
-                if (commaIndex == -1) continue;
+                String[] parts = line.split(",");
 
-                String symbol = line.substring(0, commaIndex).trim();
+                if (parts.length < 7) continue;
 
-                if (!symbol.isEmpty()) {
-                    tableModel.addRow(new Object[]{symbol, "", "", "", "", ""});
-                }
+                String symbol = parts[0];
+                String name = parts[1];
+                String exchange = parts[2];
+                String assetType = parts[3];
+                String ipoDate = parts[4];
+                String status = parts[6];
+
+                tableModel.addRow(new Object[]{
+                        symbol,
+                        name,
+                        exchange,
+                        assetType,
+                        ipoDate,
+                        status
+                });
             }
 
             reader.close();
