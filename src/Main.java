@@ -11,6 +11,7 @@ import java.io.IOException;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 
+
 public class Main implements ActionListener {
 
     private JFrame mainFrame;
@@ -257,6 +258,53 @@ public class Main implements ActionListener {
         }
 
         return result.toString();  // JSON string
+    }
+
+    private String extractValue(String json, String key) {
+
+        String search = "\"" + key + "\":\"";
+        int start = json.indexOf(search);
+
+        if (start == -1) return "N/A";
+
+        start += search.length();
+        int end = json.indexOf("\"", start);
+
+        if (end == -1) return "N/A";
+
+        return json.substring(start, end);
+    }
+
+    private String fetchOverview(String symbol) {
+        StringBuilder result = new StringBuilder();
+
+        try {
+            String urlStr = "https://www.alphavantage.co/query"
+                    + "?function=OVERVIEW"
+                    + "&symbol=" + symbol
+                    + "&apikey=" + ALPHA_VANTAGE_API_KEY;
+
+            URL url = new URL(urlStr);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream())
+            );
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                result.append(line);
+            }
+
+            reader.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        return result.toString();
     }
 
     private void loadTickersIntoTable() {
