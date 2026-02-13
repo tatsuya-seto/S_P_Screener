@@ -217,6 +217,32 @@ public class Main implements ActionListener {
         public void valueChanged(ListSelectionEvent e) {
             if (e.getValueIsAdjusting()) return;
 
+            int selectedRow = StockTable.getSelectedRow();
+            if (selectedRow == -1) return;
+
+            String symbol = tableModel.getValueAt(selectedRow, 0).toString();
+
+            String json = fetchOverview(symbol);
+            if (json == null || json.isEmpty()) return;
+
+            String marketCap = extractValue(json, "MarketCapitalization");
+            String pe = extractValue(json, "PERatio");
+            String dividend = extractValue(json, "DividendYield");
+            String sector = extractValue(json, "Sector");
+            String industry = extractValue(json, "Industry");
+            String description = extractValue(json, "Description");
+
+            String html = "<html><body style='font-family:sans-serif;'>"
+                    + "<h2>" + symbol + "</h2>"
+                    + "<b>Sector:</b> " + sector + "<br>"
+                    + "<b>Industry:</b> " + industry + "<br><br>"
+                    + "<b>Market Cap:</b> " + marketCap + "<br>"
+                    + "<b>P/E Ratio:</b> " + pe + "<br>"
+                    + "<b>Dividend Yield:</b> " + dividend + "<br><br>"
+                    + "<p>" + description + "</p>"
+                    + "</body></html>";
+
+            InfoArea.setText(html);
         }
     }
 
