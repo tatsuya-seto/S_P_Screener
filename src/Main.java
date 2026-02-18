@@ -41,7 +41,7 @@ public class Main {
     }
 
     private void initGUI() {
-        mainFrame = new JFrame("S&P 100 AI Screener with Logos");
+        mainFrame = new JFrame("S&P 50 AI Screener with Logos");
         mainFrame.setSize(1250, 850);
         mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         mainFrame.setLayout(new BorderLayout());
