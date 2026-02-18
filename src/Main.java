@@ -10,6 +10,8 @@ import java.io.InputStreamReader;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.stream.Collectors;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 
 public class Main {
 
@@ -17,11 +19,12 @@ public class Main {
     private DefaultTableModel tableModel;
     private JTable StockTable;
     private JEditorPane InfoArea, SummaryArea;
+    private JLabel logoLabel; // Label to show the company logo
+    private JLabel titleLabel; // Label for company name
 
     private static final String FMP_API_KEY = "mi3WseUUB9U5p0SzlU35X7HsxYJeTmwz";
     private static final String OPENAI_API_KEY = "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";
 
-    // Expanded S&P 100 List (~60 Tickers)
     private static final String[] TICKERS = {
             "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "BRK-B", "JPM", "V",
             "JNJ", "WMT", "MA", "PG", "UNH", "HD", "BAC", "DIS", "ADBE", "CMCSA", "VZ",
@@ -38,28 +41,46 @@ public class Main {
     }
 
     private void initGUI() {
-        mainFrame = new JFrame("S&P 100 AI Screener");
-        mainFrame.setSize(1200, 800);
+        mainFrame = new JFrame("S&P 100 AI Screener with Logos");
+        mainFrame.setSize(1250, 850);
         mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         mainFrame.setLayout(new BorderLayout());
 
-        // Table UI
+        //Table Section
         tableModel = new DefaultTableModel(new String[]{"Ticker","Company","Price","Change%","Day High"}, 0);
         StockTable = new JTable(tableModel);
-        StockTable.setRowHeight(25);
+        StockTable.setRowHeight(30);
         StockTable.getSelectionModel().addListSelectionListener(new RowSelectListener());
 
-        // Display Panels
-        InfoArea = new JEditorPane("text/html", "");
-        SummaryArea = new JEditorPane("text/html", "");
-        InfoArea.setEditable(false);
-        SummaryArea.setEditable(false);
+        //Details Section (Top Right)
+        JPanel detailsPanel = new JPanel(new BorderLayout());
 
-        JSplitPane rightSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(InfoArea), new JScrollPane(SummaryArea));
+        // Header with Logo and Title
+        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        headerPanel.setBackground(Color.WHITE);
+        logoLabel = new JLabel();
+        titleLabel = new JLabel("Select a Stock");
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
+        headerPanel.add(logoLabel);
+        headerPanel.add(titleLabel);
+
+        InfoArea = new JEditorPane("text/html", "");
+        InfoArea.setEditable(false);
+
+        detailsPanel.add(headerPanel, BorderLayout.NORTH);
+        detailsPanel.add(new JScrollPane(InfoArea), BorderLayout.CENTER);
+
+        //AI Summary Section (Bottom Right)
+        SummaryArea = new JEditorPane("text/html", "");
+        SummaryArea.setEditable(false);
+        SummaryArea.setBackground(new Color(245, 248, 255));
+
+        // Layout Splits
+        JSplitPane rightSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, detailsPanel, new JScrollPane(SummaryArea));
         rightSplit.setDividerLocation(400);
 
         JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(StockTable), rightSplit);
-        mainSplit.setDividerLocation(550);
+        mainSplit.setDividerLocation(500);
 
         mainFrame.add(mainSplit, BorderLayout.CENTER);
         mainFrame.setVisible(true);
@@ -80,7 +101,6 @@ public class Main {
                     String high = extract(json, "dayHigh");
                     SwingUtilities.invokeLater(() -> tableModel.addRow(new Object[]{ticker, name, price, change, high}));
                 }
-                // Small sleep to avoid hitting rate limits on Starter Tier
                 try { Thread.sleep(50); } catch (Exception e) {}
             }
         }).start();
@@ -93,10 +113,18 @@ public class Main {
             if (row == -1) return;
 
             String symbol = tableModel.getValueAt(row, 0).toString();
-            InfoArea.setText("<html><body style='font-family:sans-serif;'><h3>Loading " + symbol + " profile...</h3></body></html>");
-            SummaryArea.setText("<html><body style='font-family:sans-serif;'><i>Generating AI Summary...</i></body></html>");
+            String name = tableModel.getValueAt(row, 1).toString();
+
+            titleLabel.setText(name + " (" + symbol + ")");
+            InfoArea.setText("<html><body style='font-family:sans-serif;'><h3>Loading profile...</h3></body></html>");
+            SummaryArea.setText("<html><body style='font-family:sans-serif;'><i>Analyzing Market Data...</i></body></html>");
+            logoLabel.setIcon(null);
 
             new Thread(() -> {
+                // 1. Load Company Logo
+                loadLogo(symbol);
+
+                // 2. Load Profile Data
                 String profileUrl = "https://financialmodelingprep.com/stable/profile?symbol=" + symbol + "&apikey=" + FMP_API_KEY;
                 String json = makeRequest(profileUrl);
 
@@ -104,12 +132,28 @@ public class Main {
                     String industry = extract(json, "industry");
                     String desc = extract(json, "description");
 
-                    SwingUtilities.invokeLater(() -> InfoArea.setText("<html><body style='font-family:sans-serif;'><h2>" + symbol + "</h2><b>Industry:</b> " + industry + "<br><br>" + desc + "</body></html>"));
+                    SwingUtilities.invokeLater(() -> InfoArea.setText("<html><body style='font-family:sans-serif;'><b>Industry:</b> " + industry + "<br><br>" + desc + "</body></html>"));
 
+                    // 3. Get AI Analysis
                     String summary = getAISummary(desc);
-                    SwingUtilities.invokeLater(() -> SummaryArea.setText("<html><body style='font-family:sans-serif;'><h2 style='color:#2c3e50;'>AI Analysis</h2><p style='font-size:12pt;'>" + summary + "</p></body></html>"));
+                    SwingUtilities.invokeLater(() -> SummaryArea.setText("<html><body style='font-family:sans-serif; padding:10px;'><h2 style='color:#1a2a6c;'>AI Investment Analysis</h2><p style='font-size:11pt;'>" + summary + "</p></body></html>"));
                 }
             }).start();
+        }
+    }
+
+    private void loadLogo(String symbol) {
+        try {
+            // FMP image
+            URL url = new URL("https://financialmodelingprep.com/image-stock/" + symbol + ".png");
+            BufferedImage img = ImageIO.read(url);
+            if (img != null) {
+                // Scale image to fit the header nicely
+                Image scaled = img.getScaledInstance(64, 64, Image.SCALE_SMOOTH);
+                SwingUtilities.invokeLater(() -> logoLabel.setIcon(new ImageIcon(scaled)));
+            }
+        } catch (Exception e) {
+            System.out.println("No logo found for " + symbol);
         }
     }
 
@@ -126,7 +170,6 @@ public class Main {
         } catch (Exception e) { return null; }
     }
 
-    // Improved extractor to handle nested JSON and escaped quotes
     private String extract(String json, String key) {
         try {
             String search = "\"" + key + "\":";
@@ -138,7 +181,6 @@ public class Main {
 
             int end;
             if (json.charAt(start - 1) == '\"') {
-                // Find end quote but ignore escaped ones \"
                 end = start;
                 while (end < json.length()) {
                     if (json.charAt(end) == '\"' && json.charAt(end - 1) != '\\') break;
@@ -153,13 +195,12 @@ public class Main {
                                 bracket != -1 ? bracket : Integer.MAX_VALUE));
             }
             String result = json.substring(start, end).trim();
-            // Clean up JSON artifacts
             return result.replace("\\n", " ").replace("\\\"", "\"");
         } catch (Exception e) { return "N/A"; }
     }
 
     private String getAISummary(String desc) {
-        if (desc == null || desc.equals("N/A") || desc.length() < 10) return "No description available for AI to summarize.";
+        if (desc == null || desc.equals("N/A") || desc.length() < 10) return "No description available.";
 
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL("https://api.openai.com/v1/chat/completions").openConnection();
@@ -168,27 +209,26 @@ public class Main {
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setDoOutput(true);
 
-            //Clean the description so it doesn't break the JSON structure
             String cleanDesc = desc.replace("\\", "\\\\").replace("\"", "'").replace("\n", " ").replace("\r", " ");
 
-            String body = "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a helpful financial analyst.\"},{\"role\":\"user\",\"content\":\"Give advice on some of your own investment analysis as if you were a simple investment ai, that analyses some key unique factors when it comes to the said company. Make your response 4-5 sentences, and in a normal paragraph text.A summary will already be provided, so don't repeat anything unless very substantial: " + cleanDesc + "\"}]}";
+            String prompt = "Give a 4-5 sentence unique investment analysis for this company based on its profile. "
+                    + "At the end, provide a final consensus: Buy, Sell, or Hold (with strength). Description: " + cleanDesc;
+
+            String body = "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a financial analyst.\"},"
+                    + "{\"role\":\"user\",\"content\":\"" + prompt + "\"}]}";
 
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(body.getBytes("UTF-8"));
             }
 
-            if (conn.getResponseCode() != 200) {
-                return "AI Error (HTTP " + conn.getResponseCode() + "). Check your API key and balance.";
-            }
+            if (conn.getResponseCode() != 200) return "AI unavailable (Check key/balance).";
 
             try (BufferedReader r = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
                 String response = r.lines().collect(Collectors.joining());
-                // The content is specifically inside the 'content' field of the 'message' object
                 return extract(response, "content");
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            return "Summary unavailable due to a connection error.";
+            return "Connection error with AI service.";
         }
     }
 }
